@@ -1,2 +1,3 @@
-A sample command-line application with an entrypoint in `bin/`, library code
-in `lib/`, and example unit test in `test/`.
+# Genezio Dart AST
+
+A simple command line utility that receives a dart source code and outputs an AST that describes the classes, enums, type definitions and method declarations.
