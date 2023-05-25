@@ -5,6 +5,7 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/file_system/overlay_file_system.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:path/path.dart' as path;
 
 import 'dart:io';
 
@@ -82,7 +83,7 @@ void main(List<String> args) async {
   );
   final analysisSession = collection.contextFor(filePath).currentSession;
   final libraryElement = await analysisSession
-      .getLibraryByUri('file://$filePath')
+      .getLibraryByUri(path.toUri(filePath).toString())
       .then((libraryResult) => (libraryResult as LibraryElementResult).element);
 
   final program = Program([], [], []);
