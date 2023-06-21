@@ -14,86 +14,93 @@ import 'dart:io';
 class Parameter {
   String name;
   String type;
-  Parameter(this.name, this.type);
+  String library;
+  Parameter(this.name, this.type, this.library);
 }
 
 class Field {
   String name;
   String type;
-  Field(this.name, this.type);
+  String library;
+  Field(this.name, this.type, this.library);
 }
 
 class Method {
   String name;
   String returnType;
+  String? returnTypeLibrary;
   List<Parameter> parameters;
-  Method(this.name, this.returnType, this.parameters);
+  Method(this.name, this.returnType, this.returnTypeLibrary, this.parameters);
 }
 
 class Class {
-  String declarationPath;
+  String library;
+  String path;
   String name;
   List<Method> methods;
   List<Field> fields;
-  Class(this.name, this.methods, this.fields, this.declarationPath);
+  Class(this.name, this.methods, this.fields, this.library, this.path);
 }
 
 class Enum {
-  String declarationPath;
+  String library;
+  String path;
   String name;
   List<String> values;
-  Enum(this.name, this.values, this.declarationPath);
+  Enum(this.name, this.values, this.library, this.path);
 }
 
 class TypeAlias {
-  String declarationPath;
+  String library;
+  String path;
   String name;
   String type;
-  TypeAlias(this.name, this.type, this.declarationPath);
+  TypeAlias(this.name, this.type, this.library, this.path);
 }
 
 class Program {
   List<Class> classes;
   List<Enum> enums;
   List<TypeAlias> typeAliases;
+  Map<String, List<String>> imports;
 
-  Program(this.classes, this.enums, this.typeAliases);
+  Program(this.classes, this.enums, this.typeAliases, this.imports);
 
   Map<String, dynamic> toJson() => {
         'classes': classes
             .map((c) => {
                   'name': c.name,
-                  "declarationPath": c.declarationPath,
+                  "library": c.library,
+                  "path": c.path,
                   'fields': c.fields
-                      .map((f) => {'name': f.name, 'type': f.type})
+                      .map((f) => {'name': f.name, 'type': f.type, 'library': f.library})
                       .toList(),
                   'methods': c.methods
                       .map((m) => {
                             'name': m.name,
                             'returnType': m.returnType,
+                            'returnTypeLibrary': m.returnTypeLibrary,
                             'parameters': m.parameters
-                                .map((p) => {'name': p.name, 'type': p.type})
+                                .map((p) => {'name': p.name, 'type': p.type, 'library': p.library})
                                 .toList()
                           })
                       .toList()
                 })
             .toList(),
+        'imports': imports,
         'enums':
-            enums.map((e) => {'name': e.name, 'values': e.values, 'path': e.declarationPath}).toList(),
+            enums.map((e) => {'name': e.name, 'values': e.values, 'path': e.path, 'library': e.library}).toList(),
         "typeAliases":
-            typeAliases.map((t) => {'name': t.name, 'type': t.type, 'path': t.declarationPath}).toList(),
+            typeAliases.map((t) => {'name': t.name, 'type': t.type, 'path': t.path, 'library': t.library}).toList(),
       };
 }
 
 void main(List<String> args) async {
-  final filePath = args[0];
-  List<String> includedPaths = <String>[
-    filePath
-  ];
+  List<String> includedPaths = args;
   AnalysisContextCollection collection =
       new AnalysisContextCollection(includedPaths: includedPaths);
 
-  final program = Program([], [], []);
+  final program = Program([], [], [], {});
 
   for (AnalysisContext context in collection.contexts) {
     for (String filePath in context.contextRoot.analyzedFiles()) {
@@ -113,7 +120,7 @@ void main(List<String> args) async {
 
       libraryElement.units[0].enums.forEach((enumElement) {
         // print("Enum is ${enumElement.name}");
-        final enumType = Enum(enumElement.name, [], filePath);
+        final enumType = Enum(enumElement.name, [], libraryElement.identifier, filePath);
         enumElement.fields.forEach((element) {
           if (element.name != "index" && element.name != "values")
             enumType.values.add(element.name);
@@ -126,21 +133,21 @@ void main(List<String> args) async {
         // print("TypeAlias is ${typeAliasElement.name}");
         // print(typeAliasElement.aliasedType);
         final typeAlias = TypeAlias(
-            typeAliasElement.name, typeAliasElement.aliasedType.toString(), filePath);
+            typeAliasElement.name, typeAliasElement.aliasedType.toString(), libraryElement.identifier, filePath);
         program.typeAliases.add(typeAlias);
       });
 
       for (ClassElement classElement in libraryElement.units[0].classes) {
-        final classType = Class(classElement.name, [], [], filePath);
+        final classType = Class(classElement.name, [], [], libraryElement.identifier, filePath);
         // print("Class is ${classElement.name}");
         classElement.methods.forEach((method) {
           final methodType =
-              Method(method.name, method.returnType.toString(), []);
+              Method(method.name, method.returnType.toString(), method.returnType.element?.library?.identifier, []);
 
           // print(method.parameters);
           method.parameters.forEach((parameter) {
             final parameterType =
-                Parameter(parameter.name, parameter.type.toString());
+                Parameter(parameter.name, parameter.type.toString(), parameter.type.element!.library!.identifier);
             methodType.parameters.add(parameterType);
           });
 
@@ -148,7 +155,7 @@ void main(List<String> args) async {
         });
 
         classElement.fields.forEach((field) {
-          classType.fields.add(Field(field.name, field.type.toString()));
+          classType.fields.add(Field(field.name, field.type.toString(), field.type.element!.library!.identifier));
         });
 
         program.classes.add(classType);
